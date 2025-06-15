@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Calidad del Aire</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <h2>Calidad del Aire</h2>
+    <canvas id="graficaCO2"></canvas>
+
+    <script>
+        const ctx = document.getElementById('graficaCO2').getContext('2d');
+        const grafica = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'CO₂ (ppm)',
+                    data: [],
+                    borderColor: 'red',
+                    backgroundColor: 'rgba(255, 0, 0, 0.1)',
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                animation: false,
+                scales: {
+                    x: {
+                        title: { display: true, text: 'Hora' }
+                    },
+                    y: {
+                        title: { display: true, text: 'CO₂ (ppm)' },
+                        suggestedMin: 1400,
+                        suggestedMax: 3000
+                    }
+                }
+            }
+        });
+
+      async function actualizarGrafica() {
+    try {
+        const response = await fetch('/api/datos-co2/');
+        if (!response.ok) throw new Error("Error al obtener datos");
+        const data = await response.json();
+
+        grafica.data.labels = data.labels;
+        grafica.data.datasets[0].data = data.co2_data;
+        grafica.update();
+    } catch (error) {
+        console.error("Error al actualizar la gráfica:", error);
+    }
+}
+
+
+        // Actualizar cada 5 segundos
+        setInterval(actualizarGrafica, 5000);
+        actualizarGrafica(); // Primera carga
+    </script>
+</body>
+</html>

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Calidad del Aire</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        canvas {
+            max-width: 100%;
+            margin-bottom: 40px;
+        }
+    </style>
+</head>
+<body>
+    <h2>Calidad del Aire</h2>
+    <canvas id="graficaCO2"></canvas>
+
+    <script>
+        const labels = JSON.parse('{{ labels|safe|escapejs }}');
+        const co2Data = JSON.parse('{{ co2_data|safe|escapejs }}');
+
+        const ctx = document.getElementById('graficaCO2').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'CO₂ (ppm)',
+                    data: co2Data,
+                    borderColor: 'red',
+                    backgroundColor: 'rgba(255, 0, 0, 0.1)',
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 3,
+                    pointBackgroundColor: 'red'
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Date'
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'CO2 (ppm)'
+                        },
+                        suggestedMin: 1500,
+                        suggestedMax: 3000
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

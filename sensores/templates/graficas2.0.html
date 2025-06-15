@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Calidad del Aire</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        #opcionesModal {
+            display: none;
+            position: fixed;
+            top: 20%;
+            left: 50%;
+            transform: translate(-50%, -20%);
+            background: #fff;
+            border: 1px solid #ccc;
+            padding: 20px;
+            z-index: 1000;
+            box-shadow: 0 0 10px rgba(0,0,0,0.3);
+            border-radius: 8px;
+            width: 300px;
+        }
+        #overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 999;
+        }
+        canvas {
+            width: 100%;
+            max-width: 800px;
+            height: 400px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h2 id="tituloGrafico">CALIDAD DEL AIRE (Tiempo Real)</h2>
+        <button onclick="abrirOpciones()">Opciones</button>
+    </div>
+
+    <canvas id="graficaCO2"></canvas>
+
+    <!-- Modal -->
+    <div id="overlay"></div>
+    <div id="opcionesModal">
+        <h3>Opciones del gráfico</h3>
+        <label>Título: <input type="text" id="titulo" value="CALIDAD DEL AIRE (Tiempo Real)"></label>
+        <label>Eje X: <input type="text" id="ejeX" value="Hora"></label>
+        <label>Eje Y: <input type="text" id="ejeY" value="CO₂ (ppm)"></label>
+        <label>Color de línea: <input type="color" id="color" value="#d62020"></label>
+        <label>Fondo: <input type="color" id="fondo" value="#ffffff"></label>
+        <label>Días: <input type="number" id="dias" placeholder="Ej: 2" min="1"></label>
+        <label>Resultados: <input type="number" id="resultados" placeholder="Ej: 50" min="1"></label>
+        <label>Escala de tiempo:
+            <select id="escala">
+                <option value="" disabled selected>Seleccione una opción</option>
+                <option value="10">10 minutos</option>
+                <option value="15">15 minutos</option>
+                <option value="20">20 minutos</option>
+                <option value="30">30 minutos</option>
+                <option value="60">1 hora</option>
+                <option value="240">4 horas</option>
+                <option value="720">12 horas</option>
+                <option value="1440">1 día</option>
+                <option value="diario">Diario</option>
+            </select>
+        </label>
+        <br><br>
+        <button onclick="guardarOpciones()">Guardar</button>
+        <button onclick="cerrarOpciones()">Cancelar</button>
+    </div>
+
+    <script>
+        const ctx = document.getElementById('graficaCO2').getContext('2d');
+        let grafica = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'CO₂ (ppm)',
+                    data: [],
+                    borderColor: '#d62020',
+                    backgroundColor: 'rgba(214, 32, 32, 0.1)',
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                animation: false,
+                scales: {
+                    x: {
+                        title: { display: true, text: 'Hora' }
+                    },
+                    y: {
+                        title: { display: true, text: 'CO₂ (ppm)' },
+                        suggestedMin: 1400,
+                        suggestedMax: 3000
+                    }
+                }
+            }
+        });
+
+        async function cargarDatos() {
+            let dias = document.getElementById('dias').value;
+            let resultados = document.getElementById('resultados').value;
+            let escala = document.getElementById('escala').value;
+
+            // Valor predeterminado
+            if (!dias && !resultados && !escala) {
+                escala = "10";  // 10 minutos por defecto
+            }
+
+            const params = new URLSearchParams();
+            if (dias) params.append('dias', dias);
+            if (resultados) params.append('resultados', resultados);
+            if (escala) params.append('escala', escala);
+
+            const url = `/api/datos-co2/?${params.toString()}`;
+
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
+                const data = await response.json();
+
+                if (data.labels && data.co2_data) {
+                    grafica.data.labels = data.labels;
+                    grafica.data.datasets[0].data = data.co2_data;
+                    grafica.update();
+                } else {
+                    console.warn("Datos incompletos o vacíos:", data);
+                }
+            } catch (error) {
+                console.error("Error al actualizar la gráfica:", error);
+            }
+        }
+
+        function abrirOpciones() {
+            document.getElementById('opcionesModal').style.display = 'block';
+            document.getElementById('overlay').style.display = 'block';
+        }
+
+        function cerrarOpciones() {
+            document.getElementById('opcionesModal').style.display = 'none';
+            document.getElementById('overlay').style.display = 'none';
+        }
+
+        function guardarOpciones() {
+            const titulo = document.getElementById('titulo').value;
+            const ejeX = document.getElementById('ejeX').value;
+            const ejeY = document.getElementById('ejeY').value;
+            const color = document.getElementById('color').value;
+            const fondo = document.getElementById('fondo').value;
+
+            document.getElementById('tituloGrafico').textContent = titulo;
+            grafica.options.scales.x.title.text = ejeX;
+            grafica.options.scales.y.title.text = ejeY;
+            grafica.data.datasets[0].borderColor = color;
+            grafica.data.datasets[0].backgroundColor = color + '33';
+            document.body.style.backgroundColor = fondo;
+
+            cerrarOpciones();
+            cargarDatos();
+        }
+
+        window.addEventListener('load', () => {
+            document.getElementById('dias').value = '';
+            document.getElementById('resultados').value = '';
+            document.getElementById('escala').value = '';
+            cargarDatos();
+        });
+    </script>
+</body>
+</html>

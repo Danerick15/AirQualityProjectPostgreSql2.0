@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Calidad del Aire</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            margin: 0;
+        }
+        /* Ajustar ancho solo al contenedor de la gráfica */
+        .grafico-container {
+            width: 50%;       /* ocupa la mitad izquierda */
+            box-sizing: border-box;
+        }
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        #opcionesModal {
+            display: none;
+            position: fixed;
+            top: 20%;
+            left: 50%;
+            transform: translate(-50%, -20%);
+            background: #fff;
+            border: 1px solid #ccc;
+            padding: 20px;
+            z-index: 1000;
+            box-shadow: 0 0 10px rgba(0,0,0,0.3);
+            border-radius: 8px;
+            width: 300px;
+        }
+        #opcionesModal label {
+            margin-top: 10px;
+            display: block;
+        }
+        #opcionesModal input, #opcionesModal select {
+            width: 100%;
+            padding: 5px;
+        }
+        #overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 999;
+        }
+        canvas {
+            width: 100% !important;
+            height: 400px !important;
+        }
+    </style>
+</head>
+<body>
+    <!-- Contenedor que ocupa solo la parte izquierda de la página -->
+    <div class="grafico-container">
+        <div class="header">
+            <h2 id="tituloGrafico">CALIDAD DEL AIRE (Tiempo Real)</h2>
+            <button onclick="abrirOpciones()">Opciones</button>
+        </div>
+
+        <canvas id="graficaCO2"></canvas>
+    </div>
+
+    <!-- Modal de opciones (sin cambios) -->
+    <div id="overlay"></div>
+    <div id="opcionesModal">
+        <h3>Opciones del gráfico</h3>
+        <label>Título:
+            <input type="text" id="titulo" value="CALIDAD DEL AIRE (Tiempo Real)">
+        </label>
+        <label>Eje X:
+            <input type="text" id="ejeX" value="Hora">
+        </label>
+        <label>Eje Y:
+            <input type="text" id="ejeY" value="CO₂ (ppm)">
+        </label>
+        <label>Color de línea:
+            <input type="color" id="color" value="#d62020">
+        </label>
+        <label>Fondo:
+            <input type="color" id="fondo" value="#ffffff">
+        </label>
+        <label>Días:
+            <input type="number" id="dias" placeholder="Ej: 2" min="1">
+        </label>
+        <label>Resultados:
+            <input type="number" id="resultados" placeholder="Ej: 50" min="1">
+        </label>
+        <label>Escala de tiempo:
+            <select id="escala">
+                <option value="" disabled selected>Seleccione una opción</option>
+                <option value="5">5 minutos</option>
+                <option value="10">10 minutos</option>
+                <option value="15">15 minutos</option>
+                <option value="20">20 minutos</option>
+                <option value="30">30 minutos</option>
+                <option value="60">1 hora</option>
+                <option value="240">4 horas</option>
+                <option value="720">12 horas</option>
+                <option value="1440">1 día</option>
+                <option value="diario">Diario</option>
+            </select>
+        </label>
+        <br><br>
+        <button onclick="guardarOpciones()">Guardar</button>
+        <button onclick="cerrarOpciones()">Cancelar</button>
+    </div>
+
+    <script>
+        // Variables para filtros que solo se actualizan al hacer 'Guardar'
+        let filtros = {
+            dias: null,
+            resultados: null,
+            escala: "5"  // valor por defecto
+        };
+
+        // Inicialización de Chart.js
+        const ctx = document.getElementById('graficaCO2').getContext('2d');
+        let grafica = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'CO₂ (ppm)',
+                    data: [],
+                    borderColor: '#d62020',
+                    backgroundColor: 'rgba(214,32,32,0.1)',
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                animation: false,
+                scales: {
+                    x: { title: { display: true, text: 'Hora' } },
+                    y: { title: { display: true, text: 'CO₂ (ppm)' } }
+                }
+            }
+        });
+
+        async function cargarDatos() {
+            // Usar solo filtros aplicados al guardar
+            const params = new URLSearchParams();
+            if (filtros.dias) params.append('dias', filtros.dias);
+            if (filtros.resultados) params.append('resultados', filtros.resultados);
+            if (filtros.escala) params.append('escala', filtros.escala);
+
+            const url = `/api/datos-co2/?${params.toString()}`;
+            try {
+                const res = await fetch(url);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await res.json();
+                if (data.labels && data.co2_data) {
+                    grafica.data.labels = data.labels;
+                    grafica.data.datasets[0].data = data.co2_data;
+                    grafica.update();
+                }
+            } catch (e) {
+                console.error('Error al cargar datos:', e);
+            }
+        }
+
+        function abrirOpciones() {
+            // Cargar valores actuales de filtros en el modal
+            document.getElementById('dias').value = filtros.dias || '';
+            document.getElementById('resultados').value = filtros.resultados || '';
+            document.getElementById('escala').value = filtros.escala;
+            document.getElementById('opcionesModal').style.display = 'block';
+            document.getElementById('overlay').style.display = 'block';
+        }
+
+        function cerrarOpciones() {
+            document.getElementById('opcionesModal').style.display = 'none';
+            document.getElementById('overlay').style.display = 'none';
+        }
+
+        function guardarOpciones() {
+            // Actualizar filtros solo al guardar
+            filtros.dias = document.getElementById('dias').value || null;
+            filtros.resultados = document.getElementById('resultados').value || null;
+            filtros.escala = document.getElementById('escala').value || filtros.escala;
+
+            // Aplicar cambios de estilo y título
+            document.getElementById('tituloGrafico').textContent = document.getElementById('titulo').value;
+            grafica.options.scales.x.title.text = document.getElementById('ejeX').value;
+            grafica.options.scales.y.title.text = document.getElementById('ejeY').value;
+            const color = document.getElementById('color').value;
+            grafica.data.datasets[0].borderColor = color;
+            grafica.data.datasets[0].backgroundColor = color + '33';
+            document.body.style.backgroundColor = document.getElementById('fondo').value;
+
+            cerrarOpciones();
+            cargarDatos();
+        }
+
+        window.addEventListener('load', () => {
+            cargarDatos();
+            setInterval(cargarDatos, 5000);
+        });
+    </script>
+</body>
+</html>
+```

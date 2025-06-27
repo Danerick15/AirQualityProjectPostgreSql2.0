@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: air-quality-service
+    env: python
+    plan: free
+    runtime: python
+    region: oregon
+    branch: main
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "gunicorn air_quality_project.wsgi"
+    envVars:
+      - key: DEBUG
+        value: "False"
+      - key: SECRET_KEY
+        generateValue: true
+      - fromDatabase:
+          name: air-quality-db
+          property: connectionString
+          key: DATABASE_URL
+
+databases:
+  - name: air-quality-db
+    plan: free
+    region: oregon
+    databaseName: air_quality_db
+    user: postgres

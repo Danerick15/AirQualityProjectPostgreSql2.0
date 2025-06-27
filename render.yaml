@@ -23,4 +23,4 @@ databases:
     plan: free
     region: oregon
     databaseName: air_quality_db
-    user: postgres
+    user: xis
